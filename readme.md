@@ -89,12 +89,13 @@ const parsedHTML = $('article', {}, [
 In order for this to work, you can't just `renderToString` anymore, you need to `renderToDom` - add attributes and event listeners by hand:
 
 ```js
-const renderToDom = (parsed, node, parent) => {
+const renderToDom = (parsed, parent) => {
     if (typeof parsed === 'string' || typeof parsed === 'number') {
         return parent.appendChild(document.createTextNode(String(parsed)));
     } 
 
-    node = document.createElement(parsed.tag);
+    const node = document.createElement(parsed.tag);
+
     parent.appendChild(node);
 
     for (let key in parsed.props) {
@@ -106,7 +107,7 @@ const renderToDom = (parsed, node, parent) => {
     }
 
     for (let i = 0;i < parsed.children.length; ++i) {
-        renderToDom(parsed.children[i], Array.from(node.childNodes)[i], node);
+        renderToDom(parsed.children[i], node);
     }
 };
 ```
@@ -128,3 +129,67 @@ const parsedHTML = (
 ```
 
 > Please note that /** @jsx $ */ has to be the very first line in your file. Alternatively you can use `jsxFactory` option in TS and `pragma` option in babel for the whole project. Also you can simply write `const React = { createElement: (tag, props, ...children) => ({ tag, props, children }) }` and that will most likely work too.
+
+[Browse Code](https://github.com/lxchurbakov/how-you-could-have-made-react/tree/a673fefb43f4d5ee600d989fba02d7e9d9b6d4e3)
+
+## Components
+
+You are using your brand new shining library to render everything. One day you notice that some parts of your JSX are being duplicated in 2 different places. You come up with an idea. What if you were able to define your own jsx tags? 
+
+```jsx
+// cart.jsx
+
+renderToDom((
+    <div className="cart">
+        {positions.map(({ quantity, product}) => (
+            <div className="cart-row">
+                {/* These are custom jsx tags */}
+                <Product product={product} />
+                <Quantity quantity={quantity} />
+            </div>
+        ))}
+    </div>
+), root);
+
+// list.jsx
+
+renderToDom((
+    <div className="list">
+        {products.map((product) => (
+            {/* This is a custom jsx tag */}
+            <Product product={product} />
+        ))}
+    </div>
+), root);
+```
+
+You implement your idea by making custom jsx tags via functions. You name those functions components and make them accept props just like "plain" jsx tags. You make components return jsx:
+
+```jsx
+const Product = ({ product }) => {
+    return (
+        <article>
+            <h3>{product.name}</h3>
+            <div>{product.price}</div>
+            <p>{product.description}</p>
+        </article>
+    );
+};
+```
+
+However, your render function cannot accept components yet. You modify it:
+
+```jsx
+const renderToDom = (parsed, parent) => {
+    // ... text node render ...
+
+    if (typeof parsed.tag === 'function') {
+        // note we also pass children as second parameter
+        const resolvedJsx = parsed.tag(parsed.props, parsed.children);
+
+        return renderToDom(resolvedJsx, parent);
+    }
+
+    // ... the rest of renderToDom method ...
+};
+```
