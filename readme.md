@@ -193,3 +193,72 @@ const renderToDom = (parsed, parent) => {
     // ... the rest of renderToDom method ...
 };
 ```
+
+[Browse Code](https://github.com/lxchurbakov/how-you-could-have-made-react/tree/3bae71050d2227109ca7679a15ac194e35482fbb)
+
+## Update DOM
+
+Your website looks good from both inside and outside, but your UI is not really interactive. You try to fill the gap by rerendering the application each time your jsx gets updated:
+
+```jsx
+let count = 0;
+
+const increment = () => {
+    count += 1;
+    rerender();
+};
+
+const rerender = () => {
+    root.innerHTML = '';
+
+    renderToDom((
+        <article>
+            <p>Count is <span>{count}</span></p>
+            <button onClick={increment}>Increase</button>
+        </article>
+    ))
+};
+
+rerender();
+```
+
+This works. Even with `<input />`. However it feels wrong to erase and recreate whole DOM when only one string has changed. You modify your render code to support update:
+
+```jsx
+const renderToDom = (parsed, node, parent) => {
+    if (typeof parsed === 'string' || typeof parsed === 'number') {
+        if (!node) {
+            return parent.appendChild(document.createTextNode(String(parsed)));
+        } else {
+            return node.textContent = String(parsed);
+        }
+    } 
+
+    if (typeof parsed.tag === 'function') {
+        const resolvedJsx = parsed.tag(parsed.props, parsed.children);
+
+        return renderToDom(resolvedJsx, node, parent);
+    }
+    
+    if (!node) {
+        node = document.createElement(parsed.tag);
+        parent.appendChild(node);
+    }
+
+    for (let key in parsed.props) {
+        if (key.startsWith('on')) {
+            const name = key.slice(2).toLowerCase();
+
+            node.__detach?.[name]?.();
+            node.__detach ??= {};
+            node.__detach[name] = listen(node, name, parsed.props[key])
+        } else {
+            node.setAttribute(key, parsed.props[key]);
+        }
+    }
+
+    for (let i = 0;i < parsed.children.length; ++i) {
+        renderToDom(parsed.children[i], Array.from(node.childNodes)[i], node);
+    }
+};
+```
