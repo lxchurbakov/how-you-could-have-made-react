@@ -222,7 +222,7 @@ const rerender = () => {
 rerender();
 ```
 
-This works. Even with `<input />`. However it feels wrong to erase and recreate whole DOM when only one string has changed. You modify your render code to support update:
+This works. Even with `<input />`s. However it feels wrong to erase and recreate whole DOM when only one string has changed. You modify your render code to support update:
 
 ```jsx
 const renderToDom = (parsed, node, parent) => {
@@ -261,4 +261,49 @@ const renderToDom = (parsed, node, parent) => {
         renderToDom(parsed.children[i], Array.from(node.childNodes)[i], node);
     }
 };
+```
+
+[Browse Code](https://github.com/lxchurbakov/how-you-could-have-made-react/tree/a149f1f8aafdcf95a4ea13cd30babc80ee695406)
+
+## State
+
+Your state (`const count`) is global and this is bothering. Since you already have Components (function), why wouldn't you push the state there? You add 2 parameters to Component call signature and let Components force rerender of themselves and their children. 
+
+```jsx
+// component.jsx
+
+const Component = (props, children, state = { count: 0, value: 0 }, setState) => {
+    const setValue = (e) => {
+        setState({ ...state, value: parseInt(e.target.value) });
+    };
+
+    const increment = (e) => {
+        setState({ ...state, count: state.count + state.value });
+    };
+
+    return (
+        <article>
+            <p>Count is <span>{state.count}</span></p>
+            <input onChange={setValue} value={state.value.toString()} />
+            <button onClick={increment}>Add</button>
+        </article>
+    )
+};
+
+// render.jsx
+
+if (typeof parsed.tag === 'function') {    
+    const resolvedJsx = parsed.tag(
+        parsed.props, 
+        parsed.children, 
+        node.__state, 
+        ($) => {
+            node.__state = $; // store state on the DOM node
+            renderToDom(parsed, node, parent);
+        },
+    );
+
+    return renderToDom(resolvedJsx, node, parent);
+}
+
 ```

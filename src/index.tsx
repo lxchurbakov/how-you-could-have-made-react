@@ -57,7 +57,14 @@ export default (node: HTMLElement) => {
         } 
 
         if (typeof parsed.tag === 'function') {
-            const resolvedJsx = parsed.tag(parsed.props, parsed.children);
+            const state = node.__state;
+            
+            const setState = ($) => {
+                node.__state = $;
+                renderToDom(parsed, node, parent);
+            };
+
+            const resolvedJsx = parsed.tag(parsed.props, parsed.children, state, setState);
 
             return renderToDom(resolvedJsx, node, parent);
         }
@@ -84,25 +91,27 @@ export default (node: HTMLElement) => {
         }
     };
 
-    let count = 0;
-    let value = 0;
+    const Component = (props, children, state = { count: 0, value: 0 }, setState) => {
+        const setValue = (e) => {
+            setState({ ...state, value: parseInt(e.target.value) });
+        };
 
-    const increment = () => {
-        count += value;
-        rerender();
-    };
+        const increment = (e) => {
+            setState({ ...state, count: state.count + state.value });
+        };
 
-    const setValue = (e) => {
-        value = parseInt(e.target.value);
+        return (
+            <article>
+                <p>Count is <span>{state.count}</span></p>
+                <input onChange={setValue} value={state.value.toString()} />
+                <button onClick={increment}>Add</button>
+            </article>
+        )
     };
 
     const rerender = () => {
         renderToDom((
-            <article>
-                <p>Count is <span>{count}</span></p>
-                <input onChange={setValue} value={value.toString()} />
-                <button onClick={increment}>Add</button>
-            </article>
+            <Component />
         ), node, node.parentNode);
     };
 
